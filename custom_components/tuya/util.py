@@ -1,5 +1,4 @@
 """Utility methods for the Tuya integration."""
-
 from __future__ import annotations
 
 

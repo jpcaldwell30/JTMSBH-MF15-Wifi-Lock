@@ -1,5 +1,4 @@
 """Diagnostics support for Tuya."""
-
 from __future__ import annotations
 
 from contextlib import suppress

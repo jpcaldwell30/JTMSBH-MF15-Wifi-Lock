@@ -1,5 +1,4 @@
 """Support for Tuya scenes."""
-
 from __future__ import annotations
 
 from typing import Any

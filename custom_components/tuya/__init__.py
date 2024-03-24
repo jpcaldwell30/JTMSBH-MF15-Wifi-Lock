@@ -1,5 +1,4 @@
 """Support for Tuya Smart devices."""
-
 from __future__ import annotations
 
 import logging
