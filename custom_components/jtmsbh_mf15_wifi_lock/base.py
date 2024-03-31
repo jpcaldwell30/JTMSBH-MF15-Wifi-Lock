@@ -7,15 +7,13 @@ import json
 import struct
 from typing import Any, Literal, Self, overload
 
-from tuya_sharing import CustomerDevice, Manager
+from tuya_iot import TuyaDevice, TuyaDeviceManager
 
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import Entity
 
 from .const import DOMAIN, LOGGER, TUYA_HA_SIGNAL_UPDATE_ENTITY, DPCode, DPType
-from .util import remap_value
-
 
 @dataclass
 class IntegerTypeData:
@@ -51,26 +49,6 @@ class IntegerTypeData:
     def scale_value_back(self, value: float | int) -> int:
         """Return raw value for scaled."""
         return int(value * (10**self.scale))
-
-    def remap_value_to(
-        self,
-        value: float,
-        to_min: float | int = 0,
-        to_max: float | int = 255,
-        reverse: bool = False,
-    ) -> float:
-        """Remap a value from this range to a new range."""
-        return remap_value(value, self.min, self.max, to_min, to_max, reverse)
-
-    def remap_value_from(
-        self,
-        value: float,
-        from_min: float | int = 0,
-        from_max: float | int = 255,
-        reverse: bool = False,
-    ) -> float:
-        """Remap a value from its current range to this range."""
-        return remap_value(value, from_min, from_max, self.min, self.max, reverse)
 
     @classmethod
     def from_json(cls, dpcode: DPCode, data: str) -> IntegerTypeData | None:
@@ -135,11 +113,9 @@ class TuyaEntity(Entity):
     _attr_has_entity_name = True
     _attr_should_poll = False
 
-    def __init__(self, device: CustomerDevice, device_manager: Manager) -> None:
+    def __init__(self, device: TuyaDevice, device_manager: TuyaDeviceManager) -> None:
         """Init TuyaHaEntity."""
         self._attr_unique_id = f"tuya.{device.id}"
-        # TuyaEntity initialize mq can subscribe
-        device.set_up = True
         self.device = device
         self.device_manager = device_manager
 

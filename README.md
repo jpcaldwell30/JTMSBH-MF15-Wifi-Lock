@@ -1,4 +1,4 @@
-# HASS-Tuya-JTMSBH-MF15-Wifi-Lock
+# JTMSBH-MF15-Wifi-Lock
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
 
@@ -13,3 +13,4 @@ First make sure you have setup the core Tuya Home Assistant integration and have
 - Restart Home Assistant
 
 - Follow the instrctions below to add support for your lock. After adding the necesarry code, you're lock should automatically show up in Home Asssistant
+- If you need guidance with setup credentials check this link: https://support.tuya.com/en/help/_detail/Kasgyvlkrcufp

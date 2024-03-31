@@ -4,14 +4,12 @@ from dataclasses import dataclass
 import logging
 from typing import Any
 
-from homeassistant.const import PERCENTAGE
 from homeassistant.components.lock import LockEntity, LockEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from tuya_iot import TuyaDevice, TuyaDeviceManager
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,14 +23,9 @@ class TuyaLockEntityDescription(LockEntityDescription):
     locked_value: bool = False
 
 # standard is defined as Send: 1 byte. true: unlocks the door. false: locks the door.
-# Report: 1 byte. true: indicates the unlocked status. false: indicates the locked status.
+#                        Report: 1 byte. true: indicates the unlocked status. false: indicates the locked status.
 
 LOCKS: dict[str, TuyaLockEntityDescription] = {
-    # "<lock catagory>":
-    #     TuyaLockEntityDescription(
-    #         key=<DPcode.YOUR_LOCKS_DP_CODE_YOU_DEFINED_FOR_THE_LOCK_STATE_IN_CONST.PY>,
-    #         icon="mdi:lock",
-    #     ),
     "jtmsbh":
         TuyaLockEntityDescription(
             key=DPCode.M15_WIFI_01_LOCK_STATE,
@@ -99,8 +92,8 @@ class TuyaLockEntity(TuyaEntity, LockEntity):
 
     # Return True if the status is equal to the locked_value property of the entity_description object, False otherwise.
     return status == self.entity_description.locked_value
-  
-  def lock(self, **kwargs):
+
+  def lock(self, **kwargs: Any) -> None:
     """Lock the lock."""
     ticket_response = self.device_manager.api.post(self.ticket_url)
     ticket_id = ticket_response["result"].get("ticket_id")
@@ -110,7 +103,7 @@ class TuyaLockEntity(TuyaEntity, LockEntity):
     }
     self.device_manager.api.post(self.operate_url, body)
 
-  def unlock(self, **kwargs):
+  def unlock(self, **kwargs: Any) -> None:
     """Unlock the lock."""
     ticket_response = self.device_manager.api.post(self.ticket_url)
     ticket_id = ticket_response["result"].get("ticket_id")
