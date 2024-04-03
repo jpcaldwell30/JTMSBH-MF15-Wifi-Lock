@@ -1,11 +1,10 @@
 """Support for Tuya sensors."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from tuya_sharing import CustomerDevice, Manager
-from tuya_sharing.device import DeviceStatusRange
+from tuya_iot import TuyaDevice, TuyaDeviceManager
+from tuya_iot.device import TuyaDeviceStatusRange
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -38,33 +37,39 @@ from .const import (
     UnitOfMeasurement,
 )
 
-@dataclass(frozen=True)
+
+@dataclass
 class TuyaSensorEntityDescription(SensorEntityDescription):
     """Describes Tuya sensor entity."""
+
     subkey: str | None = None
-
-
-# Commonly used battery sensors, that are re-used in the sensors down below.
-BATTERY_SENSORS: tuple[TuyaSensorEntityDescription, ...] = (
-    TuyaSensorEntityDescription(
-        key=DPCode.M15_WIFI_01_BATTERY_PERCENTAGE,
-        translation_key="battery",
-        native_unit_of_measurement=PERCENTAGE,
-        device_class=SensorDeviceClass.BATTERY,
-        state_class=SensorStateClass.MEASUREMENT,
-        entity_category=EntityCategory.DIAGNOSTIC,
-    ),
-)
 
 # All descriptions can be found here. Mostly the Integer data types in the
 # default status set of each category (that don't have a set instruction)
 # end up being a sensor.
 # https://developer.tuya.com/en/docs/iot/standarddescription?id=K9i5ql6waswzq
 SENSORS: dict[str, tuple[TuyaSensorEntityDescription, ...]] = {
-    # Multi-functional Sensor
-    # https://developer.tuya.com/en/docs/iot/categorydgnbj?id=Kaiuz3yorvzg3
-    # M15 WIFI Lock,
-    "jtmsbh": BATTERY_SENSORS,
+    # Define your lock battery's sensor here...
+    # "<lock catagory>": (
+    #     TuyaSensorEntityDescription(
+    #         key=<DPcode.YOUR_LOCKS_DP_CODE_YOU_DEFINED_FOR_THE_LOCK_BATTERY_STATE_IN_CONST.PY>,
+    #         translation_key="battery",
+    #         device_class=SensorDeviceClass.BATTERY,
+    #         native_unit_of_measurement=PERCENTAGE,
+    #         state_class=SensorStateClass.MEASUREMENT,
+    #         entity_category=EntityCategory.DIAGNOSTIC,
+    #         icon="mdi:battery-lock",
+    "jtmsbh": (
+        TuyaSensorEntityDescription(
+            key=DPCode.M15_WIFI_01_BATTERY_PERCENTAGE,
+            translation_key="battery",
+            device_class=SensorDeviceClass.BATTERY,
+            native_unit_of_measurement=PERCENTAGE,
+            state_class=SensorStateClass.MEASUREMENT,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:battery-lock",
+        ),
+    ),
 }
 
 async def async_setup_entry(
@@ -78,17 +83,19 @@ async def async_setup_entry(
         """Discover and add a discovered Tuya sensor."""
         entities: list[TuyaSensorEntity] = []
         for device_id in device_ids:
-            device = hass_data.manager.device_map[device_id]
+            device = hass_data.device_manager.device_map[device_id]
             if descriptions := SENSORS.get(device.category):
-                entities.extend(
-                    TuyaSensorEntity(device, hass_data.manager, description)
-                    for description in descriptions
-                    if description.key in device.status
-                )
+                for description in descriptions:
+                    if description.key in device.status:
+                        entities.append(
+                            TuyaSensorEntity(
+                                device, hass_data.device_manager, description
+                            )
+                        )
 
         async_add_entities(entities)
 
-    async_discover_device([*hass_data.manager.device_map])
+    async_discover_device([*hass_data.device_manager.device_map])
 
     entry.async_on_unload(
         async_dispatcher_connect(hass, TUYA_DISCOVERY_NEW, async_discover_device)
@@ -100,15 +107,15 @@ class TuyaSensorEntity(TuyaEntity, SensorEntity):
 
     entity_description: TuyaSensorEntityDescription
 
-    _status_range: DeviceStatusRange | None = None
+    _status_range: TuyaDeviceStatusRange | None = None
     _type: DPType | None = None
     _type_data: IntegerTypeData | EnumTypeData | None = None
     _uom: UnitOfMeasurement | None = None
 
     def __init__(
         self,
-        device: CustomerDevice,
-        device_manager: Manager,
+        device: TuyaDevice,
+        device_manager: TuyaDeviceManager,
         description: TuyaSensorEntityDescription,
     ) -> None:
         """Init Tuya sensor."""
@@ -157,6 +164,10 @@ class TuyaSensorEntity(TuyaEntity, SensorEntity):
                 self._attr_device_class = None
                 return
 
+            # If we still have a device class, we should not use an icon
+            if self.device_class:
+                self._attr_icon = None
+
             # Found unit of measurement, use the standardized Unit
             # Use the target conversion unit (if set)
             self._attr_native_unit_of_measurement = (
@@ -181,16 +192,12 @@ class TuyaSensorEntity(TuyaEntity, SensorEntity):
         if value is None:
             return None
 
-        # Return raw value for specific data point codes (e.g., M15_WIFI_01_BATTERY_PERCENTAGE)
-        if self.entity_description.key == DPCode.M15_WIFI_01_BATTERY_PERCENTAGE:
-            return value
-
         # Scale integer/float value
         if isinstance(self._type_data, IntegerTypeData):
-            scaled_value = self._type_data.scale_value(value)
             if self._uom and self._uom.conversion_fn is not None:
+                scaled_value = self._type_data.scale_value(value)
                 return self._uom.conversion_fn(scaled_value)
-            return scaled_value
+            return value
 
         # Unexpected enum value
         if (

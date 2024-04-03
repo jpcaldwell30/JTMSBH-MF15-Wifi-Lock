@@ -8,13 +8,14 @@ import logging
 
 from tuya_iot import TuyaCloudOpenAPIEndpoint
 
+from homeassistant.backports.enum import StrEnum
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.const import (
     PERCENTAGE,
     Platform,
 )
 
-DOMAIN = "tuya"
+DOMAIN = "jtmsbh_mf15_wifi_lock"
 LOGGER = logging.getLogger(__package__)
 
 CONF_AUTH_TYPE = "auth_type"
@@ -43,8 +44,8 @@ POWER="POWER"
 
 PLATFORMS = [
     Platform.LOCK,
+    Platform.SENSOR,
 ]
-
 
 class DPType(StrEnum):
     """Data point types."""
@@ -62,12 +63,10 @@ class DPCode(StrEnum):
 
     https://developer.tuya.com/en/docs/iot/standarddescription?id=K9i5ql6waswzq
     """
-    BATTERY_PERCENTAGE = "battery_percentage"  # Battery percentage
-    BATTERY_STATE = "battery_state"  # Battery state
-    BATTERY_VALUE = "battery_value"  # Battery value
-    LOCK = "lock"  # Lock / Child lock
     M15_WIFI_01_LOCK_STATE = "lock_motor_state"
     M15_WIFI_01_BATTERY_PERCENTAGE = "residual_electricity"
+
+
 
 @dataclass
 class UnitOfMeasurement:
@@ -87,15 +86,24 @@ class UnitOfMeasurement:
 # to make them compatible with our model.
 UNITS = (
     UnitOfMeasurement(
+        unit="",
+        aliases={" "},
+        device_classes={
+            SensorDeviceClass.AQI,
+            SensorDeviceClass.DATE,
+            SensorDeviceClass.MONETARY,
+            SensorDeviceClass.TIMESTAMP,
+        },
+    ),
+    UnitOfMeasurement(
         unit=PERCENTAGE,
         aliases={"pct", "percent", "% RH"},
         device_classes={
             SensorDeviceClass.BATTERY,
-            SensorDeviceClass.HUMIDITY,
-            SensorDeviceClass.POWER_FACTOR,
         },
     ),
 )
+
 
 DEVICE_CLASS_UNITS: dict[str, dict[str, UnitOfMeasurement]] = {}
 for uom in UNITS:

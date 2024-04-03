@@ -33,8 +33,6 @@ LOCKS: dict[str, TuyaLockEntityDescription] = {
         ),
 }
 
-_LOGGER = logging.getLogger(__name__)
-
 async def async_setup_entry(
         hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
@@ -82,7 +80,6 @@ class TuyaLockEntity(TuyaEntity, LockEntity):
   def is_locked(self) -> bool | None:
     """Return true if the lock is locked."""
     # Get the status of the lock.
-    _LOGGER.debug("closed open dpcode is %s", self._closed_opened_dpcode)
     status = self.device.status.get(self._closed_opened_dpcode)
     _LOGGER.debug("status is %s", status)
 
@@ -95,6 +92,7 @@ class TuyaLockEntity(TuyaEntity, LockEntity):
 
   def lock(self, **kwargs: Any) -> None:
     """Lock the lock."""
+    _LOGGER.debug("locking lock...")
     ticket_response = self.device_manager.api.post(self.ticket_url)
     ticket_id = ticket_response["result"].get("ticket_id")
     body = {
@@ -105,6 +103,7 @@ class TuyaLockEntity(TuyaEntity, LockEntity):
 
   def unlock(self, **kwargs: Any) -> None:
     """Unlock the lock."""
+    _LOGGER.debug("unlocking lock...")
     ticket_response = self.device_manager.api.post(self.ticket_url)
     ticket_id = ticket_response["result"].get("ticket_id")
     body = {
