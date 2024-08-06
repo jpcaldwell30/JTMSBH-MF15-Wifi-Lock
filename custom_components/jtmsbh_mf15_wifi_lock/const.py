@@ -8,7 +8,6 @@ import logging
 
 from tuya_iot import TuyaCloudOpenAPIEndpoint
 
-from homeassistant.backports.enum import StrEnum
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.const import (
     PERCENTAGE,
