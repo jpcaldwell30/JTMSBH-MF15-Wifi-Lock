@@ -1,145 +1,132 @@
-"""Config flow for Tuya."""
+"""Config flow for JTMSBH MF15 Wifi Lock."""
 from __future__ import annotations
 
 from typing import Any
 
-from tuya_iot import AuthType, TuyaOpenAPI
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigFlowResult
+from homeassistant.core import HomeAssistant
 
-from .const import (
-    CONF_ACCESS_ID,
-    CONF_ACCESS_SECRET,
-    CONF_APP_TYPE,
-    CONF_AUTH_TYPE,
-    CONF_COUNTRY_CODE,
-    CONF_ENDPOINT,
-    CONF_PASSWORD,
-    CONF_USERNAME,
-    DOMAIN,
-    LOGGER,
-    SMARTLIFE_APP,
-    TUYA_COUNTRIES,
-    TUYA_RESPONSE_CODE,
-    TUYA_RESPONSE_MSG,
-    TUYA_RESPONSE_PLATFORM_URL,
-    TUYA_RESPONSE_RESULT,
-    TUYA_RESPONSE_SUCCESS,
-    TUYA_SMART_APP,
-)
+from .const import DOMAIN, TUYA_DOMAIN, CONF_ACCESS_ID, CONF_ACCESS_SECRET
+from .tuya_helper import is_tuya_integration_available
+
+STEP_USER_DATA_SCHEMA = vol.Schema({
+    vol.Required(CONF_ACCESS_ID): str,
+    vol.Required(CONF_ACCESS_SECRET): str,
+})
 
 
-class TuyaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Tuya Config Flow."""
+async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
+    """Validate the user input allows us to connect."""
+    # Check if Tuya integration is available
+    if not is_tuya_integration_available(hass):
+        raise ValueError("tuya_not_found")
+    
+    # Validate that required fields are provided
+    access_id = data.get(CONF_ACCESS_ID, "").strip()
+    access_secret = data.get(CONF_ACCESS_SECRET, "").strip()
+    
+    if not access_id:
+        raise ValueError("missing_access_id")
+    if not access_secret:
+        raise ValueError("missing_access_secret")
+    
+    # Basic validation of credential format
+    if len(access_id) < 10:
+        raise ValueError("invalid_access_id")
+    if len(access_secret) < 20:
+        raise ValueError("invalid_access_secret")
 
-    @staticmethod
-    def _try_login(user_input: dict[str, Any]) -> tuple[dict[Any, Any], dict[str, Any]]:
-        """Try login."""
-        response = {}
+    return {"title": "JTMSBH MF15 Wifi Lock"}
 
-        country = [
-            country
-            for country in TUYA_COUNTRIES
-            if country.name == user_input[CONF_COUNTRY_CODE]
-        ][0]
 
-        data = {
-            CONF_ENDPOINT: country.endpoint,
-            CONF_AUTH_TYPE: AuthType.CUSTOM,
-            CONF_ACCESS_ID: user_input[CONF_ACCESS_ID],
-            CONF_ACCESS_SECRET: user_input[CONF_ACCESS_SECRET],
-            CONF_USERNAME: user_input[CONF_USERNAME],
-            CONF_PASSWORD: user_input[CONF_PASSWORD],
-            CONF_COUNTRY_CODE: country.country_code,
-        }
+class JTMSBHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for JTMSBH MF15 Wifi Lock."""
 
-        for app_type in ("", TUYA_SMART_APP, SMARTLIFE_APP):
-            data[CONF_APP_TYPE] = app_type
-            if data[CONF_APP_TYPE] == "":
-                data[CONF_AUTH_TYPE] = AuthType.CUSTOM
-            else:
-                data[CONF_AUTH_TYPE] = AuthType.SMART_HOME
+    VERSION = 1
 
-            api = TuyaOpenAPI(
-                endpoint=data[CONF_ENDPOINT],
-                access_id=data[CONF_ACCESS_ID],
-                access_secret=data[CONF_ACCESS_SECRET],
-                auth_type=data[CONF_AUTH_TYPE],
-            )
-            api.set_dev_channel("hass")
-
-            response = api.connect(
-                username=data[CONF_USERNAME],
-                password=data[CONF_PASSWORD],
-                country_code=data[CONF_COUNTRY_CODE],
-                schema=data[CONF_APP_TYPE],
-            )
-
-            LOGGER.debug("Response %s", response)
-
-            if response.get(TUYA_RESPONSE_SUCCESS, False):
-                break
-
-        return response, data
-
-    async def async_step_user(self, user_input=None) -> config_entries.ConfigFlowResult:
-        """Step user."""
-        errors = {}
-        placeholders = {}
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle the initial step."""
+        errors: dict[str, str] = {}
 
         if user_input is not None:
-            response, data = await self.hass.async_add_executor_job(
-                self._try_login, user_input
-            )
-
-            if response.get(TUYA_RESPONSE_SUCCESS, False):
-                if endpoint := response.get(TUYA_RESPONSE_RESULT, {}).get(
-                    TUYA_RESPONSE_PLATFORM_URL
-                ):
-                    data[CONF_ENDPOINT] = endpoint
-
-                data[CONF_AUTH_TYPE] = data[CONF_AUTH_TYPE].value
+            try:
+                info = await validate_input(self.hass, user_input)
+            except ValueError as error:
+                error_str = str(error)
+                if error_str == "tuya_not_found":
+                    errors["base"] = "tuya_not_found"
+                elif error_str in ["missing_access_id", "invalid_access_id"]:
+                    errors["access_id"] = error_str
+                elif error_str in ["missing_access_secret", "invalid_access_secret"]:
+                    errors["access_secret"] = error_str
+                else:
+                    errors["base"] = "unknown"
+            else:
+                await self.async_set_unique_id(DOMAIN)
+                self._abort_if_unique_id_configured()
 
                 return self.async_create_entry(
-                    title=user_input[CONF_USERNAME],
-                    data=data,
+                    title=info["title"], 
+                    data={
+                        CONF_ACCESS_ID: user_input[CONF_ACCESS_ID].strip(),
+                        CONF_ACCESS_SECRET: user_input[CONF_ACCESS_SECRET].strip(),
+                    }
                 )
-            errors["base"] = "login_error"
-            placeholders = {
-                TUYA_RESPONSE_CODE: response.get(TUYA_RESPONSE_CODE),
-                TUYA_RESPONSE_MSG: response.get(TUYA_RESPONSE_MSG),
-            }
-
-        if user_input is None:
-            user_input = {}
 
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        CONF_COUNTRY_CODE,
-                        default=user_input.get(CONF_COUNTRY_CODE, "United States"),
-                    ): vol.In(
-                        # We don't pass a dict {code:name} because country codes can be duplicate.
-                        [country.name for country in TUYA_COUNTRIES]
-                    ),
-                    vol.Required(
-                        CONF_ACCESS_ID, default=user_input.get(CONF_ACCESS_ID, "")
-                    ): str,
-                    vol.Required(
-                        CONF_ACCESS_SECRET,
-                        default=user_input.get(CONF_ACCESS_SECRET, ""),
-                    ): str,
-                    vol.Required(
-                        CONF_USERNAME, default=user_input.get(CONF_USERNAME, "")
-                    ): str,
-                    vol.Required(
-                        CONF_PASSWORD, default=user_input.get(CONF_PASSWORD, "")
-                    ): str,
-                }
-            ),
+            data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
-            description_placeholders=placeholders,
+        )
+
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
+        """Handle reauth flow to add missing API credentials."""
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle reauth confirmation to add API credentials."""
+        errors: dict[str, str] = {}
+        
+        if user_input is not None:
+            try:
+                info = await validate_input(self.hass, user_input)
+            except ValueError as error:
+                error_str = str(error)
+                if error_str in ["missing_access_id", "invalid_access_id"]:
+                    errors["access_id"] = error_str
+                elif error_str in ["missing_access_secret", "invalid_access_secret"]:
+                    errors["access_secret"] = error_str
+                else:
+                    errors["base"] = "unknown"
+            else:
+                # Update the existing config entry with new credentials
+                existing_entry = await self.async_set_unique_id(DOMAIN)
+                if existing_entry:
+                    self.hass.config_entries.async_update_entry(
+                        existing_entry,
+                        data={
+                            **existing_entry.data,
+                            CONF_ACCESS_ID: user_input[CONF_ACCESS_ID].strip(),
+                            CONF_ACCESS_SECRET: user_input[CONF_ACCESS_SECRET].strip(),
+                        },
+                    )
+                    await self.hass.config_entries.async_reload(existing_entry.entry_id)
+                    return self.async_abort(reason="reauth_successful")
+                
+                return self.async_abort(reason="reauth_failed")
+        
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=STEP_USER_DATA_SCHEMA,
+            errors=errors,
+            description_placeholders={
+                "reason": "Missing API credentials from previous setup"
+            },
         )

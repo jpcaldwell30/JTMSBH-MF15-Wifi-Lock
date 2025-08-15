@@ -3,12 +3,13 @@
   "name": "JTMSBH MF15 Wifi Lock",
   "codeowners": ["@jpcaldwell30"],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": ["tuya"],
   "dhcp": [],
   "documentation": "https://github.com/jpcaldwell30/JTMSBH-MF15-Wifi-Lock",
-  "integration_type": "hub",
+  "integration_type": "device",
   "iot_class": "cloud_push",
-  "loggers": ["tuya_iot"],
-  "requirements": ["tuya-iot-py-sdk"],
-  "version": "23.10.3"
+  "loggers": [],
+  "requirements": ["tuya-connector-python>=0.1.2"],
+  "version": "24.1.0",
+  "after_dependencies": ["tuya"]
 }

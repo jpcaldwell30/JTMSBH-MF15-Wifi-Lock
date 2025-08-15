@@ -1,10 +1,7 @@
-"""Support for Tuya sensors."""
+"""Support for JTMSBH MF15 Wifi Lock sensors extending Tuya integration."""
 from __future__ import annotations
 
 from dataclasses import dataclass
-
-from tuya_iot import TuyaDevice, TuyaDeviceManager
-from tuya_iot.device import TuyaDeviceStatusRange
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -13,54 +10,25 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import (
-    PERCENTAGE,
-    EntityCategory,
-    UnitOfElectricCurrent,
-    UnitOfElectricPotential,
-    UnitOfPower,
-    UnitOfTime,
-)
+from homeassistant.const import PERCENTAGE, EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
 
-from . import HomeAssistantTuyaData
-from .base import ElectricityTypeData, EnumTypeData, IntegerTypeData, TuyaEntity
-from .const import (
-    DEVICE_CLASS_UNITS,
-    DOMAIN,
-    TUYA_DISCOVERY_NEW,
-    DPCode,
-    DPType,
-    UnitOfMeasurement,
-)
+from .const import DOMAIN, TUYA_DOMAIN, JTMSBH_DISCOVERY_NEW, DPCode
+from .tuya_helper import get_tuya_device_manager
 
 
-@dataclass
-class TuyaSensorEntityDescription(SensorEntityDescription):
-    """Describes Tuya sensor entity."""
+@dataclass(frozen=True)
+class JTMSBHSensorEntityDescription(SensorEntityDescription):
+    """Describes JTMSBH sensor entity."""
+    pass
 
-    subkey: str | None = None
 
-# All descriptions can be found here. Mostly the Integer data types in the
-# default status set of each category (that don't have a set instruction)
-# end up being a sensor.
-# https://developer.tuya.com/en/docs/iot/standarddescription?id=K9i5ql6waswzq
-SENSORS: dict[str, tuple[TuyaSensorEntityDescription, ...]] = {
-    # Define your lock battery's sensor here...
-    # "<lock catagory>": (
-    #     TuyaSensorEntityDescription(
-    #         key=<DPcode.YOUR_LOCKS_DP_CODE_YOU_DEFINED_FOR_THE_LOCK_BATTERY_STATE_IN_CONST.PY>,
-    #         translation_key="battery",
-    #         device_class=SensorDeviceClass.BATTERY,
-    #         native_unit_of_measurement=PERCENTAGE,
-    #         state_class=SensorStateClass.MEASUREMENT,
-    #         entity_category=EntityCategory.DIAGNOSTIC,
-    #         icon="mdi:battery-lock",
+SENSORS: dict[str, tuple[JTMSBHSensorEntityDescription, ...]] = {
     "jtmsbh": (
-        TuyaSensorEntityDescription(
+        JTMSBHSensorEntityDescription(
             key=DPCode.M15_WIFI_01_BATTERY_PERCENTAGE,
             translation_key="battery",
             device_class=SensorDeviceClass.BATTERY,
@@ -72,152 +40,90 @@ SENSORS: dict[str, tuple[TuyaSensorEntityDescription, ...]] = {
     ),
 }
 
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up Tuya sensor dynamically through Tuya discovery."""
-    hass_data: HomeAssistantTuyaData = hass.data[DOMAIN][entry.entry_id]
+    """Set up JTMSBH sensor entities."""
 
     @callback
     def async_discover_device(device_ids: list[str]) -> None:
-        """Discover and add a discovered Tuya sensor."""
-        entities: list[TuyaSensorEntity] = []
+        """Discover and add JTMSBH sensor entities."""
+        entities: list[JTMSBHSensorEntity] = []
+
         for device_id in device_ids:
-            device = hass_data.device_manager.device_map[device_id]
-            if descriptions := SENSORS.get(device.category):
-                for description in descriptions:
-                    if description.key in device.status:
-                        entities.append(
-                            TuyaSensorEntity(
-                                device, hass_data.device_manager, description
+            # Get device manager and device from Tuya integration
+            device_manager, device = get_tuya_device_manager(hass, device_id)
+
+            if device_manager and device and device.category == 'jtmsbh':
+                if descriptions := SENSORS.get(device.category):
+                    for description in descriptions:
+                        if description.key in device.status:
+                            entities.append(
+                                JTMSBHSensorEntity(device, device_manager, description)
                             )
-                        )
 
-        async_add_entities(entities)
+        if entities:
+            async_add_entities(entities)
 
-    async_discover_device([*hass_data.device_manager.device_map])
+    # Discover any existing devices
+    jtmsbh_data = hass.data[DOMAIN][entry.entry_id]
+    if jtmsbh_data.monitored_devices:
+        async_discover_device(list(jtmsbh_data.monitored_devices))
 
+    # Listen for new device discoveries
     entry.async_on_unload(
-        async_dispatcher_connect(hass, TUYA_DISCOVERY_NEW, async_discover_device)
+        async_dispatcher_connect(hass, JTMSBH_DISCOVERY_NEW, async_discover_device)
     )
 
 
-class TuyaSensorEntity(TuyaEntity, SensorEntity):
-    """Tuya Sensor Entity."""
+class JTMSBHSensorEntity(SensorEntity):
+    """JTMSBH Sensor Entity that extends Tuya devices."""
 
-    entity_description: TuyaSensorEntityDescription
-
-    _status_range: TuyaDeviceStatusRange | None = None
-    _type: DPType | None = None
-    _type_data: IntegerTypeData | EnumTypeData | None = None
-    _uom: UnitOfMeasurement | None = None
+    _attr_has_entity_name = True
+    _attr_should_poll = False
 
     def __init__(
         self,
-        device: TuyaDevice,
-        device_manager: TuyaDeviceManager,
-        description: TuyaSensorEntityDescription,
+        device,
+        device_manager,
+        description: JTMSBHSensorEntityDescription,
     ) -> None:
-        """Init Tuya sensor."""
-        super().__init__(device, device_manager)
+        """Initialize the JTMSBH sensor entity."""
+        self.device = device
+        self.device_manager = device_manager
         self.entity_description = description
-        self._attr_unique_id = (
-            f"{super().unique_id}{description.key}{description.subkey or ''}"
-        )
 
-        if int_type := self.find_dpcode(description.key, dptype=DPType.INTEGER):
-            self._type_data = int_type
-            self._type = DPType.INTEGER
-            if description.native_unit_of_measurement is None:
-                self._attr_native_unit_of_measurement = int_type.unit
-        elif enum_type := self.find_dpcode(
-            description.key, dptype=DPType.ENUM, prefer_function=True
-        ):
-            self._type_data = enum_type
-            self._type = DPType.ENUM
-        else:
-            self._type = self.get_dptype(DPCode(description.key))
+        # Set unique ID
+        self._attr_unique_id = f"{device.id}_{description.key}"
 
-        # Logic to ensure the set device class and API received Unit Of Measurement
-        # match Home Assistants requirements.
-        if (
-            self.device_class is not None
-            and not self.device_class.startswith(DOMAIN)
-            and description.native_unit_of_measurement is None
-        ):
-            # We cannot have a device class, if the UOM isn't set or the
-            # device class cannot be found in the validation mapping.
-            if (
-                self.native_unit_of_measurement is None
-                or self.device_class not in DEVICE_CLASS_UNITS
-            ):
-                self._attr_device_class = None
-                return
+        # Set device info to link with existing Tuya device
+        self._attr_device_info = {
+            "identifiers": {(TUYA_DOMAIN, device.id)},
+        }
 
-            uoms = DEVICE_CLASS_UNITS[self.device_class]
-            self._uom = uoms.get(self.native_unit_of_measurement) or uoms.get(
-                self.native_unit_of_measurement.lower()
-            )
+    @property
+    def available(self) -> bool:
+        """Return if the device is available."""
+        return self.device.online
 
-            # Unknown unit of measurement, device class should not be used.
-            if self._uom is None:
-                self._attr_device_class = None
-                return
-
-            # If we still have a device class, we should not use an icon
-            if self.device_class:
-                self._attr_icon = None
-
-            # Found unit of measurement, use the standardized Unit
-            # Use the target conversion unit (if set)
-            self._attr_native_unit_of_measurement = (
-                self._uom.conversion_unit or self._uom.unit
-            )
 
     @property
     def native_value(self) -> StateType:
         """Return the value reported by the sensor."""
-        # Only continue if data type is known
-        if self._type not in (
-            DPType.INTEGER,
-            DPType.STRING,
-            DPType.ENUM,
-            DPType.JSON,
-            DPType.RAW,
-        ):
-            return None
-
-        # Raw value
         value = self.device.status.get(self.entity_description.key)
-        if value is None:
-            return None
-
-        # Scale integer/float value
-        if isinstance(self._type_data, IntegerTypeData):
-            if self._uom and self._uom.conversion_fn is not None:
-                scaled_value = self._type_data.scale_value(value)
-                return self._uom.conversion_fn(scaled_value)
-            return value
-
-        # Unexpected enum value
-        if (
-            isinstance(self._type_data, EnumTypeData)
-            and value not in self._type_data.range
-        ):
-            return None
-
-        # Get subkey value from Json string.
-        if self._type is DPType.JSON:
-            if self.entity_description.subkey is None:
-                return None
-            values = ElectricityTypeData.from_json(value)
-            return getattr(values, self.entity_description.subkey)
-
-        if self._type is DPType.RAW:
-            if self.entity_description.subkey is None:
-                return None
-            values = ElectricityTypeData.from_raw(value)
-            return getattr(values, self.entity_description.subkey)
-
-        # Valid string or enum value
         return value
+
+    async def async_added_to_hass(self) -> None:
+        """Call when entity is added to hass."""
+        # Set up listener for device updates from Tuya integration
+        @callback
+        def handle_tuya_update() -> None:
+            """Handle updates from Tuya integration."""
+            self.async_write_ha_state()
+
+        # Listen for updates to this specific device
+        signal = f"tuya_entry_update_{self.device.id}"
+        self.async_on_remove(
+            async_dispatcher_connect(self.hass, signal, handle_tuya_update)
+        )

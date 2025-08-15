@@ -2,27 +2,42 @@
   "config": {
     "step": {
       "user": {
-        "description": "Enter your Tuya credentials",
+        "title": "JTMSBH MF15 Wifi Lock Setup",
+        "description": "This integration extends the Tuya integration to add lock support for JTMSBH MF15 devices. Make sure you have the Tuya integration configured first.\n\nTo obtain your Tuya IoT Platform API credentials:\n1. Go to [Tuya IoT Platform](https://iot.tuya.com/)\n2. Click Cloud > Development > Create Cloud Project\n3. Select 'Smart Home' as Development Method\n4. After creation, find your Access ID/Client ID and Access Secret/Client Secret in the project Overview tab",
         "data": {
-          "country_code": "Country",
-          "access_id": "Tuya IoT Access ID",
-          "access_secret": "Tuya IoT Access Secret",
-          "username": "Account",
-          "password": "[%key:common::config_flow::data::password%]"
+          "access_id": "Access ID/Client ID",
+          "access_secret": "Access Secret/Client Secret"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Add Missing API Credentials",
+        "description": "Your JTMSBH integration needs to be updated with Tuya IoT Platform API credentials.\n\nTo obtain your credentials:\n1. Go to [Tuya IoT Platform](https://iot.tuya.com/)\n2. Click Cloud > Development > Create Cloud Project\n3. Select 'Smart Home' as Development Method\n4. Find your Access ID/Client ID and Access Secret/Client Secret in the project Overview tab",
+        "data": {
+          "access_id": "Access ID/Client ID",
+          "access_secret": "Access Secret/Client Secret"
         }
       }
     },
     "error": {
-      "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
-      "login_error": "Login error ({code}): {msg}"
+      "tuya_not_found": "Tuya integration not found. Please install and configure the Tuya integration first.",
+      "tuya_not_configured": "Tuya integration found but not configured. Please configure the Tuya integration first.",
+      "missing_access_id": "Access ID/Client ID is required.",
+      "invalid_access_id": "Access ID/Client ID appears to be invalid (too short).",
+      "missing_access_secret": "Access Secret/Client Secret is required.",
+      "invalid_access_secret": "Access Secret/Client Secret appears to be invalid (too short).",
+      "unknown": "Unknown error occurred."
+    },
+    "abort": {
+      "already_configured": "JTMSBH MF15 Wifi Lock integration is already configured.",
+      "reauth_successful": "Credentials updated successfully. Integration will reload automatically.",
+      "reauth_failed": "Failed to update credentials. Please try again."
     }
   },
+  "entity": {
     "sensor": {
       "battery": {
-        "name": "[%key:component::sensor::entity_component::battery::name%]"
-      },
-      "battery_state": {
-        "name": "Battery state"
+        "name": "Battery"
       }
     }
+  }
 }
