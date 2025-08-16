@@ -1,6 +1,5 @@
 # JTMSBH MF15 Wifi Lock Integration for Home Assistant
 
-[![GitHub Release][releases-shield]][releases]
 [![GitHub Activity][commits-shield]][commits]
 [![License][license-shield]][license]
 [![hacs][hacsbadge]][hacs]
