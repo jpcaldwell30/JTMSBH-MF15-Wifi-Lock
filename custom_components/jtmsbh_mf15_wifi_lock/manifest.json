@@ -11,6 +11,6 @@
   "iot_class": "cloud_polling",
   "loggers": ["custom_components.jtmsbh_mf15_wifi_lock"],
   "requirements": ["tuya-connector-python>=0.1.2"],
-  "version": "1.0.0"
+  "version": "1.0.0",
   "after_dependencies": ["tuya"]
 }
