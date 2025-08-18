@@ -4,7 +4,7 @@
 [![License][license-shield]][license]
 [![hacs][hacsbadge]][hacs]
 
-A comprehensive Home Assistant custom integration for JTMSBH MF15 WiFi smart locks that extends the official Tuya integration with enhanced lock support and local polling capabilities.
+A Home Assistant custom integration for JTMSBH MF15 WiFi smart locks that extends the official Tuya integration with enhanced lock support and local polling capabilities.
 
 ## Features
 
