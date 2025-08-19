@@ -23,10 +23,11 @@ I am having less and less time to work on this integration, so updates may be de
 ## Prerequisites
 
 This integration extends the official Home Assistant Tuya integration and requires:
-
-1. **Tuya Integration**: The official [Tuya integration](https://www.home-assistant.io/integrations/tuya/) must be installed and configured first
-2. **Device Setup**: Your JTMSBH MF15 lock must already be added to your Tuya account and visible in the Tuya integration
-3. **Tuya IoT Platform Account**: Required for enhanced API features
+1. **Lock category must be jtmsbh**: This integration will only work with locks with category "jtmsbh" when accessed through the Tuya developer portal. In practice, so far I am only aware of one lock (the lock that I have) with this category. The lock in question as previosly stated is of category "jtmsbh", but is also has the following relavent attributes. "model": "M15_WIFI_01",
+"name": "SMART Lock", "productId": "26bwvzlm7ejz0ql8","productName": "SMART Lock".
+2. **Tuya Integration**: The official [Tuya integration](https://www.home-assistant.io/integrations/tuya/) must be installed and configured first
+3. **Device Setup**: Your JTMSBH MF15 lock must already be added to your Tuya account and visible in the Tuya integration. 
+4. **Tuya IoT Platform Account**: Required for enhanced API features
 
 ## Installation
 
